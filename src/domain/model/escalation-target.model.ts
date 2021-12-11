@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 export enum EscalationTargetType {
   sms = 'sms',
   email = 'email',

@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import { AcknowledgementTimeout, AlertState, NotFoundError } from '../model';
 import { Alert } from '../model/alert.model';
 import { EscalationPolicy } from '../model/escalation-policy.model';
@@ -6,7 +7,6 @@ import { EscalationPolicyPort, LoggerPort } from '../ports';
 import { IAlertStateService } from './alert-state.service';
 import { IMonitoredServiceStateService } from './monitored-service-state.service';
 import { INotificationService } from './notification.service';
-import { v4 as uuidv4 } from 'uuid';
 
 export class PagerService {
   constructor(
@@ -41,9 +41,16 @@ export class PagerService {
 
     await this.notifyAndSave(alertState);
   }
-  
+
   public async setAcknowledgementTimeout(ack: AcknowledgementTimeout): Promise<void> {
     const alertState: AlertState = await this.alertStateService.get(ack.monitoredServiceId);
+
+    const targets = alertState.escalationLevel?.targets || [];
+    const isLevelNotified = targets.find((target) => target.isNotified) !== undefined;
+    if (isLevelNotified) {
+      return;
+    }
+
     alertState.escalationLevel = alertState.escalationLevel.nextLevel;
     await this.notifyAndSave(alertState);
   }
@@ -53,8 +60,6 @@ export class PagerService {
     if (targets.length === 0) {
       throw new NotFoundError('targets');
     }
-
-    if (targets.find(target => target.))
 
     await this.notificationService.notify(
       alertState.identifier,
