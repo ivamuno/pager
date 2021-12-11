@@ -1,4 +1,4 @@
-import { AlertState } from '../model';
+import { AcknowledgementTimeout, AlertState, NotFoundError } from '../model';
 import { Alert } from '../model/alert.model';
 import { EscalationPolicy } from '../model/escalation-policy.model';
 import { MonitoredServiceState, MonitoredServiceStates } from '../model/monitored-service-state.model';
@@ -38,8 +38,23 @@ export class PagerService {
     alertState.escalationLevel.targets.forEach((t) => {
       t.identifier = this.identifierFactory(t.identifier);
     });
+
+    await this.notifyAndSave(alertState);
+  }
+
+  public async setAcknowledgementTimeout(ack: AcknowledgementTimeout): Promise<void> {
+    const alertState: AlertState = await this.alertStateService.get(ack.monitoredServiceId);
+    alertState.escalationLevel = alertState.escalationLevel.nextLevel;
+    await this.notifyAndSave(alertState);
+  }
+
+  private async notifyAndSave(alertState: AlertState) {
+    if (alertState.escalationLevel.targets?.length === 0) {
+      throw new NotFoundError('targets');
+    }
+
     await this.notificationService.notify(
-      alert.monitoredServiceId,
+      alertState.identifier,
       alertState.message,
       alertState.escalationLevel.targets,
     );

@@ -1,3 +1,4 @@
+export * from './acknowledgment-timeout.model';
 export * from './alert-state.model';
 export * from './alert.model';
 export * from './escalation-level.model';

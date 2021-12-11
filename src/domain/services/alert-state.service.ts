@@ -1,4 +1,4 @@
-import { AlertState } from '../model';
+import { AlertState, NotFoundError } from '../model';
 import { PersistencePort } from '../ports';
 
 export interface IAlertStateService {
@@ -11,7 +11,12 @@ export class AlertStateService implements IAlertStateService {
   public constructor(private readonly persistencePort: PersistencePort<AlertState>) {}
 
   public async get(id: string): Promise<AlertState> {
-    return await this.persistencePort.get(id);
+    const state = await this.persistencePort.get(id);
+    if (!state) {
+      throw new NotFoundError(id);
+    }
+
+    return state;
   }
 
   public async set(entity: AlertState): Promise<void> {

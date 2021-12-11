@@ -1,4 +1,4 @@
-import { EscalationTarget, EscalationTargetType } from '../model/escalation-target.model';
+import { EscalationTarget, EscalationTargetType, AcknowledgementTimeout } from '../model';
 import { EmailNotificationPort, NotificationPort, SMSNotificationPort } from '../ports/notification.port';
 import { TimerPort } from '../ports/timer.port';
 
@@ -24,7 +24,8 @@ export class NotificationService implements INotificationService {
     const promises: Promise<void>[] = targets.reduce((acc, t) => {
       const notificationStrategy = this.notificationStrategies[t.getEscalationTargetType()];
       const targetPromise: Promise<void> = notificationStrategy.notify(message, t.payload);
-      const timerPromise: Promise<void> = this.timerPort.start(monitoredServiceId, t.identifier, delayInMinutes);
+      const acknowledgementTimeout = new AcknowledgementTimeout(monitoredServiceId, t.identifier);
+      const timerPromise: Promise<void> = this.timerPort.start(acknowledgementTimeout, delayInMinutes);
       acc.push(...[targetPromise, timerPromise]);
       return acc;
     }, []);

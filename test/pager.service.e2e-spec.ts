@@ -1,151 +1,116 @@
-import { TimerPort } from 'src/domain/ports/timer.port';
 import {
+  AcknowledgementTimeout,
   Alert,
   AlertState,
-  EscalationEmailTarget,
-  EscalationLevel,
   EscalationPolicy,
-  EscalationSMSTarget,
   EscalationTarget,
-  MonitoredService,
   MonitoredServiceState,
   MonitoredServiceStates,
 } from '../src/domain/model';
 
-import {
-  EmailNotificationPort,
-  EscalationPolicyPort,
-  LoggerPort,
-  NotificationPort,
-  PersistencePort,
-  SMSNotificationPort,
-} from '../src/domain/ports';
+import { NotificationPort, PersistencePort, TimerPort } from '../src/domain/ports';
 
-import {
-  AlertStateService,
-  IAlertStateService,
-  IMonitoredServiceStateService,
-  INotificationService,
-  MonitoredServiceStateService,
-  NotificationService,
-  PagerService,
-} from '../src/domain/services';
+import { PagerService } from '../src/domain/services';
+import { Fixture } from './fixture/fixture';
+import { Mocks } from './fixture/mocks';
+import { WellKnown } from './fixture/well-know.template';
 
-const loggerMock: LoggerPort = {
-  log: jest.fn(),
-};
-
-const escalationPolicyPortMock: EscalationPolicyPort = {
-  get: jest.fn(),
-};
-
-const persistencePortMonitoredServiceStateMock: PersistencePort<MonitoredServiceState> = {
-  delete: jest.fn(),
-  get: jest.fn(),
-  set: jest.fn(),
-};
-
-const monitoredServiceStateService: IMonitoredServiceStateService = new MonitoredServiceStateService(
-  persistencePortMonitoredServiceStateMock,
-);
-
-const persistencePortAlertStateMock: PersistencePort<AlertState> = {
-  delete: jest.fn(),
-  get: jest.fn(),
-  set: jest.fn(),
-};
-
-const alertStateService: IAlertStateService = new AlertStateService(persistencePortAlertStateMock);
-
-const timerPortMock: TimerPort = {
-  start: jest.fn(),
-  stop: jest.fn(),
-};
-
-const emailNotificationPortMock: EmailNotificationPort = {
-  notify: jest.fn(),
-};
-
-const smsNotificationPortMock: SMSNotificationPort = {
-  notify: jest.fn(),
-};
-
-const notificationService: INotificationService = new NotificationService(
-  timerPortMock,
-  emailNotificationPortMock,
-  smsNotificationPortMock,
-);
-
-let pagerService: PagerService;
+const monitoredId = 'monitoredId:1234';
 
 describe('PagerService (e2e)', () => {
+  let fixture = new Fixture();
+  let mocks: Mocks = fixture.mocks;
+  let sut: PagerService = fixture.sut;
+
   beforeEach(() => {
-    jest.clearAllMocks();
-    pagerService = new PagerService(
-      loggerMock,
-      escalationPolicyPortMock,
-      monitoredServiceStateService,
-      alertStateService,
-      notificationService,
-      (id) => id,
-    );
+    mocks.restart();
   });
 
   describe('GIVEN a Monitored Service in a Healthy State', () => {
-    const monitoredId = 'monitoredId:1234';
-    persistencePortMonitoredServiceStateMock.get = jest.fn().mockImplementationOnce((id: string) => {
-      expect(id).toBe(monitoredId);
-      return new MonitoredServiceState(monitoredId, 'v1', MonitoredServiceStates.health);
-    });
-
     describe('WHEN the Pager receives an Alert related to this Monitored Service', () => {
-      const alertMessage = 'service down';
-      const alert = new Alert(monitoredId, alertMessage);
       test(`THEN the Monitored Service becomes Unhealthy,
               the Pager notifies all targets of the first level of the escalation policy,
               and sets a 15-minutes acknowledgement delay`, async () => {
-        const escalationLevelTargetSMS2 = new EscalationSMSTarget('targetSMS2', false, {
-          phoneNumber: 'targetSMSNumber2',
-        });
-        const escalationLevel2 = new EscalationLevel([escalationLevelTargetSMS2]);
+        arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.health);
 
-        const escalationLevelTargetSMS1 = new EscalationSMSTarget('targetSMS1', false, {
-          phoneNumber: 'targetSMSNumber1',
-        });
-        const escalationEmailTargetEmail1 = new EscalationEmailTarget('targetEmail1', false, {
-          email: 'targetEmailEmail1',
-        });
-        const escalationLevel1 = new EscalationLevel(
-          [escalationLevelTargetSMS1, escalationEmailTargetEmail1],
-          escalationLevel2,
+        const expectedEscalationPolicy = arrangeEscalationPolicy(mocks.escalationPolicyPortMock);
+
+        const alert = new Alert(monitoredId, WellKnown.AlertMessage);
+        await sut.alert(alert);
+
+        assetMonitoredServiceStateCalled(
+          mocks.persistencePortMonitoredServiceStateMock,
+          MonitoredServiceStates.unhealth,
         );
-        const escalationPolicy = new EscalationPolicy(new MonitoredService(monitoredId), escalationLevel1);
-        const expectedEscalationPolicy = JSON.parse(JSON.stringify(escalationPolicy)) as EscalationPolicy;
 
-        escalationPolicyPortMock.get = jest.fn().mockImplementationOnce((id: string) => {
-          expect(id).toBe(monitoredId);
-          return escalationPolicy;
+        assertTimerCalled(mocks.timerPortMock, monitoredId, expectedEscalationPolicy.level.targets, 2);
+
+        assertNotificationCalled(mocks.emailNotificationPortMock, WellKnown.AlertMessage, {
+          email: WellKnown.EscalationEmailTargetEmail1.payload.email,
         });
 
-        await pagerService.alert(alert);
-
-        assetMonitoredServiceStateCalled(persistencePortMonitoredServiceStateMock, MonitoredServiceStates.unhealth);
-
-        assertTimerCalled(timerPortMock, expectedEscalationPolicy.level.targets, monitoredId);
-
-        assertNotificationCalled(emailNotificationPortMock, alertMessage, {
-          email: escalationEmailTargetEmail1.payload.email,
+        assertNotificationCalled(mocks.smsNotificationPortMock, WellKnown.AlertMessage, {
+          phoneNumber: WellKnown.EscalationLevelTargetSMS1.payload.phoneNumber,
         });
 
-        assertNotificationCalled(smsNotificationPortMock, alertMessage, {
-          phoneNumber: escalationLevelTargetSMS1.payload.phoneNumber,
+        assetAlertStateCalled(mocks.persistencePortAlertStateMock, monitoredId);
+      });
+    });
+  });
+
+  describe(`GIVEN a Monitored Service in an Unhealthy State
+                  the corresponding Alert is not Acknowledged
+                  and the next level has not been notified`, () => {
+    describe('WHEN the Pager receives the Acknowledgement Timeout', () => {
+      test(`THEN the Pager notifies all targets of the next level of the escalation policy
+                and sets a 15-minutes acknowledgement delay`, async () => {
+        arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.unhealth);
+
+        const alertState: AlertState = arrangeAlertState(mocks.persistencePortAlertStateMock);
+
+        const anyLevel1TargetId = WellKnown.EscalationLevelTargetSMS1.identifier;
+        const ack = new AcknowledgementTimeout(monitoredId, anyLevel1TargetId);
+        await sut.setAcknowledgementTimeout(ack);
+
+        assertTimerCalled(mocks.timerPortMock, monitoredId, alertState.escalationLevel.nextLevel.targets, 1);
+
+        assertNotificationCalled(mocks.smsNotificationPortMock, WellKnown.AlertMessage, {
+          phoneNumber: WellKnown.EscalationLevelTargetSMS2.payload.phoneNumber,
         });
 
-        assetAlertStateCalled(persistencePortAlertStateMock, monitoredId);
+        assetAlertStateCalled(mocks.persistencePortAlertStateMock, monitoredId);
       });
     });
   });
 });
+
+function arrangeMonitoredServiceState(persistencePortMonitoredServiceStateMock, state: MonitoredServiceStates): void {
+  persistencePortMonitoredServiceStateMock.get = jest.fn().mockImplementationOnce((id: string) => {
+    expect(id).toBe(monitoredId);
+    return new MonitoredServiceState(monitoredId, 'v1', state);
+  });
+}
+
+function arrangeAlertState(persistencePortAlertStateMock): AlertState {
+  const alertState = new AlertState(monitoredId, 'v1', WellKnown.AlertMessage, WellKnown.EscalationLevel1);
+  persistencePortAlertStateMock.get = jest.fn().mockImplementationOnce((id: string) => {
+    expect(id).toBe(monitoredId);
+    return alertState;
+  });
+
+  return clone(alertState);
+}
+
+function arrangeEscalationPolicy(escalationPolicyPortMock): EscalationPolicy {
+  const escalationPolicy: EscalationPolicy = WellKnown.EscalationPolicyTemplateFactory(monitoredId);
+
+  escalationPolicyPortMock.get = jest.fn().mockImplementationOnce((id: string) => {
+    expect(id).toBe(monitoredId);
+    return escalationPolicy;
+  });
+
+  return clone(escalationPolicy);
+}
 
 function assetAlertStateCalled(mock: PersistencePort<AlertState>, id: string): void {
   const setAlertStateSpy = jest.spyOn(mock, 'set');
@@ -164,23 +129,33 @@ function assetMonitoredServiceStateCalled(
 
 function assertTimerCalled(
   timerPort: TimerPort,
-  escalationTargets: EscalationTarget<any>[],
   monitoredId: string,
+  escalationTargets: EscalationTarget<any>[],
+  times: number,
 ): void {
-  function mapTimerCall(timerPortStartSpy): { alertId: string; targetId: string; delay: string }[] {
-    return timerPortStartSpy.mock.calls.map((call: [alertId: string, targetId: string, delay: string]) => {
-      return { alertId: call[0], targetId: call[1], delay: call[2] };
+  type TimerPortArgs = { acknowledgementTimeout: AcknowledgementTimeout; delay: string };
+
+  function mapTimerCall(timerPortStartSpy): TimerPortArgs[] {
+    return timerPortStartSpy.mock.calls.map((call: [acknowledgementTimeout: AcknowledgementTimeout, delay: string]) => {
+      return { acknowledgementTimeout: call[0], delay: call[1] };
     });
   }
 
   const timerPortStartSpy = jest.spyOn(timerPort, 'start');
-  expect(timerPortStartSpy).toBeCalledTimes(2);
+  expect(timerPortStartSpy).toBeCalledTimes(times);
 
-  const timerPortStartCalls: { alertId: string; targetId: string; delay: string }[] = mapTimerCall(timerPortStartSpy);
+  const timerPortStartCalls: TimerPortArgs[] = mapTimerCall(timerPortStartSpy);
 
   escalationTargets.forEach((target) => {
-    const timerPortStartCall = timerPortStartCalls.find((startCall) => startCall.targetId === target.identifier);
-    expect(timerPortStartCall).toEqual({ alertId: monitoredId, targetId: target.identifier, delay: '15' });
+    const timerPortStartCall = timerPortStartCalls.find(
+      (startCall) => startCall.acknowledgementTimeout.targetId === target.identifier,
+    );
+
+    const expectedMonitoredServiceId: TimerPortArgs = {
+      acknowledgementTimeout: { monitoredServiceId: monitoredId, targetId: target.identifier },
+      delay: '15',
+    };
+    expect(timerPortStartCall).toEqual(expectedMonitoredServiceId);
   });
 }
 
@@ -196,4 +171,8 @@ function assertNotificationCalled(notificationPortMock: NotificationPort<any>, m
   expect(notificationNotifySpy).toBeCalledTimes(1);
   const emailNotificationNotifyCall = mapNotificationNotifyCall(notificationNotifySpy);
   expect(emailNotificationNotifyCall).toEqual({ message, to });
+}
+
+function clone<T>(input: T): T {
+  return JSON.parse(JSON.stringify(input));
 }
