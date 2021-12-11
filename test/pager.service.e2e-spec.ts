@@ -6,6 +6,7 @@ import {
   EscalationTarget,
   MonitoredServiceState,
   MonitoredServiceStates,
+  NotFoundError,
 } from '../src/domain/model';
 
 import { NotificationPort, PersistencePort, TimerPort } from '../src/domain/ports';
@@ -66,19 +67,43 @@ describe('PagerService (e2e)', () => {
                 and sets a 15-minutes acknowledgement delay`, async () => {
         arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.unhealth);
 
-        const alertState: AlertState = arrangeAlertState(mocks.persistencePortAlertStateMock);
+        const alertState = new AlertState(monitoredId, 'v1', WellKnown.AlertMessage, WellKnown.EscalationLevel1);
+        const expectedAlertState = clone(alertState);
+        arrangeAlertState(mocks.persistencePortAlertStateMock, alertState);
 
         const anyLevel1TargetId = WellKnown.EscalationLevelTargetSMS1.identifier;
         const ack = new AcknowledgementTimeout(monitoredId, anyLevel1TargetId);
         await sut.setAcknowledgementTimeout(ack);
 
-        assertTimerCalled(mocks.timerPortMock, monitoredId, alertState.escalationLevel.nextLevel.targets, 1);
+        assertTimerCalled(mocks.timerPortMock, monitoredId, expectedAlertState.escalationLevel.nextLevel.targets, 1);
 
         assertNotificationCalled(mocks.smsNotificationPortMock, WellKnown.AlertMessage, {
           phoneNumber: WellKnown.EscalationLevelTargetSMS2.payload.phoneNumber,
         });
 
         assetAlertStateCalled(mocks.persistencePortAlertStateMock, monitoredId);
+      });
+    });
+  });
+
+  describe(`GIVEN a Monitored Service in an Unhealthy State
+                  the corresponding Alert is not Acknowledged
+                  and there is not next level`, () => {
+    describe('WHEN the Pager receives the Acknowledgement Timeout', () => {
+      test(`THEN the Pager throws an error`, async () => {
+        arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.unhealth);
+
+        const alertState = new AlertState(monitoredId, 'v1', WellKnown.AlertMessage, WellKnown.EscalationLevel2);
+        arrangeAlertState(mocks.persistencePortAlertStateMock, alertState);
+
+        const anyLevel1TargetId = WellKnown.EscalationLevelTargetSMS1.identifier;
+        const ack = new AcknowledgementTimeout(monitoredId, anyLevel1TargetId);
+
+        try {
+          await sut.setAcknowledgementTimeout(ack);
+        } catch (err) {
+          expect(err).toBeInstanceOf(NotFoundError);
+        }
       });
     });
   });
@@ -91,14 +116,11 @@ function arrangeMonitoredServiceState(persistencePortMonitoredServiceStateMock, 
   });
 }
 
-function arrangeAlertState(persistencePortAlertStateMock): AlertState {
-  const alertState = new AlertState(monitoredId, 'v1', WellKnown.AlertMessage, WellKnown.EscalationLevel1);
+function arrangeAlertState(persistencePortAlertStateMock, alertState: AlertState): void {
   persistencePortAlertStateMock.get = jest.fn().mockImplementationOnce((id: string) => {
     expect(id).toBe(monitoredId);
     return alertState;
   });
-
-  return clone(alertState);
 }
 
 function arrangeEscalationPolicy(escalationPolicyPortMock): EscalationPolicy {

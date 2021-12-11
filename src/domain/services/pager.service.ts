@@ -41,7 +41,7 @@ export class PagerService {
 
     await this.notifyAndSave(alertState);
   }
-
+  
   public async setAcknowledgementTimeout(ack: AcknowledgementTimeout): Promise<void> {
     const alertState: AlertState = await this.alertStateService.get(ack.monitoredServiceId);
     alertState.escalationLevel = alertState.escalationLevel.nextLevel;
@@ -49,9 +49,12 @@ export class PagerService {
   }
 
   private async notifyAndSave(alertState: AlertState) {
-    if (alertState.escalationLevel.targets?.length === 0) {
+    const targets = alertState.escalationLevel?.targets || [];
+    if (targets.length === 0) {
       throw new NotFoundError('targets');
     }
+
+    if (targets.find(target => target.))
 
     await this.notificationService.notify(
       alertState.identifier,
