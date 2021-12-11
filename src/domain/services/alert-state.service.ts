@@ -5,6 +5,8 @@ export interface IAlertStateService {
   get(id: string): Promise<AlertState>;
 
   set(entity: AlertState): Promise<void>;
+
+  delete(id: string): Promise<void>;
 }
 
 export class AlertStateService implements IAlertStateService {
@@ -21,5 +23,9 @@ export class AlertStateService implements IAlertStateService {
 
   public async set(entity: AlertState): Promise<void> {
     await this.persistencePort.set(entity);
+  }
+
+  public async delete(id: string): Promise<void> {
+    await this.persistencePort.delete(id);
   }
 }

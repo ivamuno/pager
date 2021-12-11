@@ -1,3 +1,3 @@
-export class AcknowledgementTimeout {
+export class Acknowledgement {
   constructor(public monitoredServiceId: string, public targetId: string) {}
 }

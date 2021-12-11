@@ -1,5 +1,5 @@
 import {
-  AcknowledgementTimeout,
+  Acknowledgement,
   Alert,
   AlertState,
   EscalationPolicy,
@@ -69,7 +69,7 @@ describe('PagerService (e2e)', () => {
             and doesn't set an acknowledgement delay`, async () => {
           arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.unhealth);
 
-          const alertState = new AlertState(monitoredId, 'v1', WellKnown.AlertMessage(), WellKnown.EscalationLevel1());
+          const alertState = new AlertState(monitoredId, WellKnown.AlertMessage(), WellKnown.EscalationLevel1());
 
           // It means receive the ACK
           alertState.escalationLevel.targets[0].isNotified = true;
@@ -99,12 +99,12 @@ describe('PagerService (e2e)', () => {
             and sets a 15-minutes acknowledgement delay`, async () => {
           arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.unhealth);
 
-          const alertState = new AlertState(monitoredId, 'v1', WellKnown.AlertMessage(), WellKnown.EscalationLevel1());
+          const alertState = new AlertState(monitoredId, WellKnown.AlertMessage(), WellKnown.EscalationLevel1());
           const expectedAlertState = clone(alertState);
           arrangeAlertState(mocks.persistencePortAlertStateMock, alertState);
 
           const anyLevel1TargetId = WellKnown.EscalationLevelTargetSMS1().identifier;
-          const ack = new AcknowledgementTimeout(monitoredId, anyLevel1TargetId);
+          const ack = new Acknowledgement(monitoredId, anyLevel1TargetId);
           await sut.setAcknowledgementTimeout(ack);
 
           assertTimerCalled(mocks.timerPortMock, monitoredId, expectedAlertState.escalationLevel.nextLevel.targets, 1);
@@ -126,11 +126,11 @@ describe('PagerService (e2e)', () => {
         test(`THEN the Pager throws an error`, async () => {
           arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.unhealth);
 
-          const alertState = new AlertState(monitoredId, 'v1', WellKnown.AlertMessage(), WellKnown.EscalationLevel2());
+          const alertState = new AlertState(monitoredId, WellKnown.AlertMessage(), WellKnown.EscalationLevel2());
           arrangeAlertState(mocks.persistencePortAlertStateMock, alertState);
 
           const anyLevel1TargetId = WellKnown.EscalationLevelTargetSMS1().identifier;
-          const ack = new AcknowledgementTimeout(monitoredId, anyLevel1TargetId);
+          const ack = new Acknowledgement(monitoredId, anyLevel1TargetId);
 
           try {
             await sut.setAcknowledgementTimeout(ack);
@@ -155,7 +155,7 @@ describe('PagerService (e2e)', () => {
             and doesn't set an acknowledgement delay`, async () => {
           arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.unhealth);
 
-          const alertState = new AlertState(monitoredId, 'v1', WellKnown.AlertMessage(), WellKnown.EscalationLevel1());
+          const alertState = new AlertState(monitoredId, WellKnown.AlertMessage(), WellKnown.EscalationLevel1());
 
           // It means receive the ACK
           alertState.escalationLevel.targets[0].isNotified = true;
@@ -163,7 +163,7 @@ describe('PagerService (e2e)', () => {
           arrangeAlertState(mocks.persistencePortAlertStateMock, alertState);
 
           const anyLevel1TargetId = WellKnown.EscalationLevelTargetSMS1().identifier;
-          const ack = new AcknowledgementTimeout(monitoredId, anyLevel1TargetId);
+          const ack = new Acknowledgement(monitoredId, anyLevel1TargetId);
           await sut.setAcknowledgementTimeout(ack);
 
           assertTimerIsNotCalled(mocks.timerPortMock);
@@ -182,11 +182,11 @@ describe('PagerService (e2e)', () => {
             and doesn't set an acknowledgement delay`, async () => {
           arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.health);
 
-          const alertState = new AlertState(monitoredId, 'v1', WellKnown.AlertMessage(), WellKnown.EscalationLevel1());
+          const alertState = new AlertState(monitoredId, WellKnown.AlertMessage(), WellKnown.EscalationLevel1());
           arrangeAlertState(mocks.persistencePortAlertStateMock, alertState);
 
           const anyLevel1TargetId = WellKnown.EscalationLevelTargetSMS1().identifier;
-          const ack = new AcknowledgementTimeout(monitoredId, anyLevel1TargetId);
+          const ack = new Acknowledgement(monitoredId, anyLevel1TargetId);
           await sut.setAcknowledgementTimeout(ack);
 
           assertTimerIsNotCalled(mocks.timerPortMock);
@@ -204,7 +204,7 @@ describe('PagerService (e2e)', () => {
 function arrangeMonitoredServiceState(persistencePortMonitoredServiceStateMock, state: MonitoredServiceStates): void {
   persistencePortMonitoredServiceStateMock.get = jest.fn().mockImplementationOnce((id: string) => {
     expect(id).toBe(monitoredId);
-    return new MonitoredServiceState(monitoredId, 'v1', state);
+    return new MonitoredServiceState(monitoredId, state);
   });
 }
 
@@ -252,10 +252,10 @@ function assertTimerCalled(
   escalationTargets: EscalationTarget<any>[],
   times: number,
 ): void {
-  type TimerPortArgs = { acknowledgementTimeout: AcknowledgementTimeout; delay: string };
+  type TimerPortArgs = { acknowledgementTimeout: Acknowledgement; delay: string };
 
   function mapTimerCall(timerPortStartSpy): TimerPortArgs[] {
-    return timerPortStartSpy.mock.calls.map((call: [acknowledgementTimeout: AcknowledgementTimeout, delay: string]) => {
+    return timerPortStartSpy.mock.calls.map((call: [acknowledgementTimeout: Acknowledgement, delay: string]) => {
       return { acknowledgementTimeout: call[0], delay: call[1] };
     });
   }

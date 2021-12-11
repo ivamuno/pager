@@ -1,6 +1,5 @@
-import { AcknowledgementTimeout } from '../model';
+import { Acknowledgement } from '../model';
 
 export interface TimerPort {
-  start(acknowledgementTimeout: AcknowledgementTimeout, delay: string): Promise<void>;
-  stop(acknowledgementTimeout: AcknowledgementTimeout): Promise<void>;
+  start(acknowledgementTimeout: Acknowledgement, delay: string): Promise<void>;
 }

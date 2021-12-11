@@ -9,7 +9,7 @@ export enum MonitoredServiceStates {
 export class MonitoredServiceState extends MonitoredService {
   payload: MonitoredServiceStates = this.state;
 
-  constructor(identifier: string, public version: string, public state: MonitoredServiceStates) {
+  constructor(identifier: string, public state: MonitoredServiceStates) {
     super(identifier);
   }
 

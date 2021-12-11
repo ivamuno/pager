@@ -31,7 +31,6 @@ export class Mocks {
 
   timerPortMock: TimerPort = {
     start: jest.fn(),
-    stop: jest.fn(),
   };
 
   emailNotificationPortMock: EmailNotificationPort = {
@@ -53,7 +52,6 @@ export class Mocks {
     (this.persistencePortAlertStateMock.get as jest.Mock<any>).mockReset();
     (this.persistencePortAlertStateMock.set as jest.Mock<any>).mockReset();
     (this.timerPortMock.start as jest.Mock<any>).mockReset();
-    (this.timerPortMock.stop as jest.Mock<any>).mockReset();
     (this.emailNotificationPortMock.notify as jest.Mock<any>).mockReset();
     (this.smsNotificationPortMock.notify as jest.Mock<any>).mockReset();
   }
