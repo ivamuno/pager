@@ -30,174 +30,172 @@ describe('PagerService (e2e)', () => {
     mocks.restart();
   });
 
-  describe('GIVEN a Monitored Service in a Healthy State', () => {
-    describe('WHEN the Pager receives an Alert related to this Monitored Service', () => {
-      test(`THEN the Monitored Service becomes Unhealthy,
-          the Pager notifies all targets of the first level of the escalation policy,
-          and sets a 15-minutes acknowledgement delay`, async () => {
-        arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.health);
+  describe('alert operation', () => {
+    describe('GIVEN a Monitored Service in a Healthy State', () => {
+      describe('WHEN the Pager receives an Alert related to this Monitored Service', () => {
+        test(`THEN the Monitored Service becomes Unhealthy,
+            the Pager notifies all targets of the first level of the escalation policy,
+            and sets a 15-minutes acknowledgement delay`, async () => {
+          arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.health);
 
-        const expectedEscalationPolicy = arrangeEscalationPolicy(mocks.escalationPolicyPortMock);
+          const expectedEscalationPolicy = arrangeEscalationPolicy(mocks.escalationPolicyPortMock);
 
-        const alert = new Alert(monitoredId, WellKnown.AlertMessage());
-        await sut.alert(alert);
+          const alert = new Alert(monitoredId, WellKnown.AlertMessage());
+          await sut.alert(alert);
 
-        assetMonitoredServiceStateCalled(
-          mocks.persistencePortMonitoredServiceStateMock,
-          MonitoredServiceStates.unhealth,
-        );
+          assetMonitoredServiceStateCalled(
+            mocks.persistencePortMonitoredServiceStateMock,
+            MonitoredServiceStates.unhealth,
+          );
 
-        assertTimerCalled(mocks.timerPortMock, monitoredId, expectedEscalationPolicy.level.targets, 2);
+          assertTimerCalled(mocks.timerPortMock, monitoredId, expectedEscalationPolicy.level.targets, 2);
 
-        assertNotificationCalled(mocks.emailNotificationPortMock, WellKnown.AlertMessage(), {
-          email: WellKnown.EscalationEmailTargetEmail1().payload.email,
+          assertNotificationCalled(mocks.emailNotificationPortMock, WellKnown.AlertMessage(), {
+            email: WellKnown.EscalationEmailTargetEmail1().payload.email,
+          });
+
+          assertNotificationCalled(mocks.smsNotificationPortMock, WellKnown.AlertMessage(), {
+            phoneNumber: WellKnown.EscalationLevelTargetSMS1().payload.phoneNumber,
+          });
+
+          assetAlertStateCalled(mocks.persistencePortAlertStateMock, monitoredId);
         });
-
-        assertNotificationCalled(mocks.smsNotificationPortMock, WellKnown.AlertMessage(), {
-          phoneNumber: WellKnown.EscalationLevelTargetSMS1().payload.phoneNumber,
-        });
-
-        assetAlertStateCalled(mocks.persistencePortAlertStateMock, monitoredId);
       });
     });
 
-    describe('WHEN the Pager receives the Acknowledgement Timeout', () => {
-      test(`THEN the Pager doesn't notify any Target
-      and doesn't set an acknowledgement delay`, async () => {
-        arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.health);
+    describe(`GIVEN a Monitored Service in an Unhealthy State`, () => {
+      describe(`WHEN the Pager receives an Alert related to this Monitored Service`, () => {
+        test(`THEN the Pager doesn't notify any Target
+            and doesn't set an acknowledgement delay`, async () => {
+          arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.unhealth);
 
-        const expectedEscalationPolicy = arrangeEscalationPolicy(mocks.escalationPolicyPortMock);
+          const alertState = new AlertState(monitoredId, 'v1', WellKnown.AlertMessage(), WellKnown.EscalationLevel1());
 
-        const alert = new Alert(monitoredId, WellKnown.AlertMessage());
-        await sut.alert(alert);
+          // It means receive the ACK
+          alertState.escalationLevel.targets[0].isNotified = true;
 
-        assetMonitoredServiceStateCalled(
-          mocks.persistencePortMonitoredServiceStateMock,
-          MonitoredServiceStates.unhealth,
-        );
+          arrangeAlertState(mocks.persistencePortAlertStateMock, alertState);
 
-        assertTimerCalled(mocks.timerPortMock, monitoredId, expectedEscalationPolicy.level.targets, 2);
+          const alert = new Alert(monitoredId, WellKnown.AlertMessage());
+          await sut.alert(alert);
 
-        assertNotificationCalled(mocks.emailNotificationPortMock, WellKnown.AlertMessage(), {
-          email: WellKnown.EscalationEmailTargetEmail1().payload.email,
-        });
-
-        assertNotificationCalled(mocks.smsNotificationPortMock, WellKnown.AlertMessage(), {
-          phoneNumber: WellKnown.EscalationLevelTargetSMS1().payload.phoneNumber,
-        });
-
-        assetAlertStateCalled(mocks.persistencePortAlertStateMock, monitoredId);
-      });
-    });
-  });
-
-  describe(`GIVEN a Monitored Service in an Unhealthy State
-    the corresponding Alert is not Acknowledged
-    and the next level has not been notified`, () => {
-    describe('WHEN the Pager receives the Acknowledgement Timeout', () => {
-      test(`THEN the Pager notifies all targets of the next level of the escalation policy
-          and sets a 15-minutes acknowledgement delay`, async () => {
-        arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.unhealth);
-
-        const alertState = new AlertState(monitoredId, 'v1', WellKnown.AlertMessage(), WellKnown.EscalationLevel1());
-        const expectedAlertState = clone(alertState);
-        arrangeAlertState(mocks.persistencePortAlertStateMock, alertState);
-
-        const anyLevel1TargetId = WellKnown.EscalationLevelTargetSMS1().identifier;
-        const ack = new AcknowledgementTimeout(monitoredId, anyLevel1TargetId);
-        await sut.setAcknowledgementTimeout(ack);
-
-        assertTimerCalled(mocks.timerPortMock, monitoredId, expectedAlertState.escalationLevel.nextLevel.targets, 1);
-
-        assertNotificationCalled(mocks.smsNotificationPortMock, WellKnown.AlertMessage(), {
-          phoneNumber: WellKnown.EscalationLevelTargetSMS2().payload.phoneNumber,
-        });
-        assertNotificationIsNotCalled(mocks.emailNotificationPortMock);
-
-        assetAlertStateCalled(mocks.persistencePortAlertStateMock, monitoredId);
-      });
-    });
-  });
-
-  describe(`GIVEN a Monitored Service in an Unhealthy State
-    the corresponding Alert is not Acknowledged
-    and there is not next level`, () => {
-    describe('WHEN the Pager receives the Acknowledgement Timeout', () => {
-      test(`THEN the Pager throws an error`, async () => {
-        arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.unhealth);
-
-        const alertState = new AlertState(monitoredId, 'v1', WellKnown.AlertMessage(), WellKnown.EscalationLevel2());
-        arrangeAlertState(mocks.persistencePortAlertStateMock, alertState);
-
-        const anyLevel1TargetId = WellKnown.EscalationLevelTargetSMS1().identifier;
-        const ack = new AcknowledgementTimeout(monitoredId, anyLevel1TargetId);
-
-        try {
-          await sut.setAcknowledgementTimeout(ack);
-        } catch (err) {
-          expect(err).toBeInstanceOf(NotFoundError);
-        } finally {
           assertTimerIsNotCalled(mocks.timerPortMock);
 
           assertNotificationIsNotCalled(mocks.smsNotificationPortMock);
           assertNotificationIsNotCalled(mocks.emailNotificationPortMock);
 
           assetAlertStateIsNotCalled(mocks.persistencePortAlertStateMock);
-        }
+        });
       });
     });
   });
 
-  describe(`GIVEN a Monitored Service in an Unhealthy State`, () => {
-    describe(`WHEN the Pager receives the Acknowledgement 
-      and later receives the Acknowledgement Timeout`, () => {
-      test(`THEN the Pager doesn't notify any Target
-          and doesn't set an acknowledgement delay`, async () => {
-        arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.unhealth);
+  describe('setAcknowledgementTimeout operation', () => {
+    describe(`GIVEN a Monitored Service in an Unhealthy State
+      the corresponding Alert is not Acknowledged
+      and the next level has not been notified`, () => {
+      describe('WHEN the Pager receives the Acknowledgement Timeout', () => {
+        test(`THEN the Pager notifies all targets of the next level of the escalation policy
+            and sets a 15-minutes acknowledgement delay`, async () => {
+          arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.unhealth);
 
-        const alertState = new AlertState(monitoredId, 'v1', WellKnown.AlertMessage(), WellKnown.EscalationLevel1());
+          const alertState = new AlertState(monitoredId, 'v1', WellKnown.AlertMessage(), WellKnown.EscalationLevel1());
+          const expectedAlertState = clone(alertState);
+          arrangeAlertState(mocks.persistencePortAlertStateMock, alertState);
 
-        // It means receive the ACK
-        alertState.escalationLevel.targets[0].isNotified = true;
+          const anyLevel1TargetId = WellKnown.EscalationLevelTargetSMS1().identifier;
+          const ack = new AcknowledgementTimeout(monitoredId, anyLevel1TargetId);
+          await sut.setAcknowledgementTimeout(ack);
 
-        arrangeAlertState(mocks.persistencePortAlertStateMock, alertState);
+          assertTimerCalled(mocks.timerPortMock, monitoredId, expectedAlertState.escalationLevel.nextLevel.targets, 1);
 
-        const anyLevel1TargetId = WellKnown.EscalationLevelTargetSMS1().identifier;
-        const ack = new AcknowledgementTimeout(monitoredId, anyLevel1TargetId);
-        await sut.setAcknowledgementTimeout(ack);
+          assertNotificationCalled(mocks.smsNotificationPortMock, WellKnown.AlertMessage(), {
+            phoneNumber: WellKnown.EscalationLevelTargetSMS2().payload.phoneNumber,
+          });
+          assertNotificationIsNotCalled(mocks.emailNotificationPortMock);
 
-        assertTimerIsNotCalled(mocks.timerPortMock);
-
-        assertNotificationIsNotCalled(mocks.smsNotificationPortMock);
-        assertNotificationIsNotCalled(mocks.emailNotificationPortMock);
-
-        assetAlertStateIsNotCalled(mocks.persistencePortAlertStateMock);
+          assetAlertStateCalled(mocks.persistencePortAlertStateMock, monitoredId);
+        });
       });
     });
-  });
 
-  describe(`GIVEN a Monitored Service in an Unhealthy State`, () => {
-    describe(`WHEN the Pager receives an Alert related to this Monitored Service`, () => {
-      test(`THEN the Pager doesn't notify any Target
-          and doesn't set an acknowledgement delay`, async () => {
-        arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.unhealth);
+    describe(`GIVEN a Monitored Service in an Unhealthy State
+        the corresponding Alert is not Acknowledged
+        and there is not next level`, () => {
+      describe('WHEN the Pager receives the Acknowledgement Timeout', () => {
+        test(`THEN the Pager throws an error`, async () => {
+          arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.unhealth);
 
-        const alertState = new AlertState(monitoredId, 'v1', WellKnown.AlertMessage(), WellKnown.EscalationLevel1());
+          const alertState = new AlertState(monitoredId, 'v1', WellKnown.AlertMessage(), WellKnown.EscalationLevel2());
+          arrangeAlertState(mocks.persistencePortAlertStateMock, alertState);
 
-        // It means receive the ACK
-        alertState.escalationLevel.targets[0].isNotified = true;
+          const anyLevel1TargetId = WellKnown.EscalationLevelTargetSMS1().identifier;
+          const ack = new AcknowledgementTimeout(monitoredId, anyLevel1TargetId);
 
-        arrangeAlertState(mocks.persistencePortAlertStateMock, alertState);
+          try {
+            await sut.setAcknowledgementTimeout(ack);
+          } catch (err) {
+            expect(err).toBeInstanceOf(NotFoundError);
+          } finally {
+            assertTimerIsNotCalled(mocks.timerPortMock);
 
-        const alert = new Alert(monitoredId, WellKnown.AlertMessage());
-        await sut.alert(alert);
+            assertNotificationIsNotCalled(mocks.smsNotificationPortMock);
+            assertNotificationIsNotCalled(mocks.emailNotificationPortMock);
 
-        assertTimerIsNotCalled(mocks.timerPortMock);
+            assetAlertStateIsNotCalled(mocks.persistencePortAlertStateMock);
+          }
+        });
+      });
+    });
 
-        assertNotificationIsNotCalled(mocks.smsNotificationPortMock);
-        assertNotificationIsNotCalled(mocks.emailNotificationPortMock);
+    describe(`GIVEN a Monitored Service in an Unhealthy State`, () => {
+      describe(`WHEN the Pager receives the Acknowledgement 
+        and later receives the Acknowledgement Timeout`, () => {
+        test(`THEN the Pager doesn't notify any Target
+            and doesn't set an acknowledgement delay`, async () => {
+          arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.unhealth);
 
-        assetAlertStateIsNotCalled(mocks.persistencePortAlertStateMock);
+          const alertState = new AlertState(monitoredId, 'v1', WellKnown.AlertMessage(), WellKnown.EscalationLevel1());
+
+          // It means receive the ACK
+          alertState.escalationLevel.targets[0].isNotified = true;
+
+          arrangeAlertState(mocks.persistencePortAlertStateMock, alertState);
+
+          const anyLevel1TargetId = WellKnown.EscalationLevelTargetSMS1().identifier;
+          const ack = new AcknowledgementTimeout(monitoredId, anyLevel1TargetId);
+          await sut.setAcknowledgementTimeout(ack);
+
+          assertTimerIsNotCalled(mocks.timerPortMock);
+
+          assertNotificationIsNotCalled(mocks.smsNotificationPortMock);
+          assertNotificationIsNotCalled(mocks.emailNotificationPortMock);
+
+          assetAlertStateIsNotCalled(mocks.persistencePortAlertStateMock);
+        });
+      });
+    });
+
+    describe(`GIVEN a Monitored Service in a Healthy State`, () => {
+      describe(`WHEN the Pager receives the Acknowledgement Timeout`, () => {
+        test(`THEN the Pager doesn't notify any Target
+            and doesn't set an acknowledgement delay`, async () => {
+          arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.health);
+
+          const alertState = new AlertState(monitoredId, 'v1', WellKnown.AlertMessage(), WellKnown.EscalationLevel1());
+          arrangeAlertState(mocks.persistencePortAlertStateMock, alertState);
+
+          const anyLevel1TargetId = WellKnown.EscalationLevelTargetSMS1().identifier;
+          const ack = new AcknowledgementTimeout(monitoredId, anyLevel1TargetId);
+          await sut.setAcknowledgementTimeout(ack);
+
+          assertTimerIsNotCalled(mocks.timerPortMock);
+
+          assertNotificationIsNotCalled(mocks.smsNotificationPortMock);
+          assertNotificationIsNotCalled(mocks.emailNotificationPortMock);
+
+          assetAlertStateIsNotCalled(mocks.persistencePortAlertStateMock);
+        });
       });
     });
   });
