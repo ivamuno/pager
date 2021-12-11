@@ -1,0 +1,69 @@
+{
+  "env": {
+    "es2021": true,
+    "jest": true
+  },
+  "extends": ["standard", "plugin:prettier/recommended"],
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 12,
+    "sourceType": "module"
+  },
+  "plugins": ["@typescript-eslint", "prettier"],
+  "rules": {
+    "semi": ["error", "always"],
+    "@typescript-eslint/no-require-imports": ["error"],
+    "import/order": [
+      "error",
+      {
+        "groups": ["builtin", "external"],
+        "alphabetize": {
+          "order": "asc",
+          "caseInsensitive": true
+        }
+      }
+    ],
+    "@typescript-eslint/member-ordering": [
+      "error",
+      {
+        "default": [
+          "public-static-field",
+          "protected-static-field",
+          "private-static-field",
+
+          "public-abstract-field",
+          "protected-abstract-field",
+
+          "public-instance-field",
+          "protected-instance-field",
+          "private-instance-field",
+
+          "public-constructor",
+          "protected-constructor",
+          "private-constructor",
+
+          "public-abstract-method",
+          "protected-abstract-method",
+
+          "public-static-method",
+          "protected-static-method",
+          "private-static-method",
+
+          "public-instance-method",
+          "protected-instance-method",
+          "private-instance-method"
+        ]
+      }
+    ],
+    "prettier/prettier": "error"
+  },
+  "overrides": [
+    {
+      "files": ["*.json", ".*rc"],
+      "rules": {
+        "semi": "off",
+        "no-unused-expressions": "off"
+      }
+    }
+  ]
+}
