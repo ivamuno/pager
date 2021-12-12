@@ -7,6 +7,8 @@ import {
 } from '../../src/domain/model';
 
 export class WellKnown {
+  static MonitoredId = () => 'monitoredId:1234';
+
   static AlertMessage = () => 'service down';
 
   static EscalationLevelTargetSMS2 = () =>
