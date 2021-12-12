@@ -7,9 +7,5 @@ export class AlertState {
     escalationLevel;
   };
 
-  constructor(
-    public identifier: string,
-    public message: string,
-    public escalationLevel: EscalationLevel,
-  ) {}
+  constructor(public identifier: string, public message: string, public escalationLevel: EscalationLevel) {}
 }

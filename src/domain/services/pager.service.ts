@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { Acknowledgement, AlertState, EscalationLevel, NotFoundError } from '../model';
+import { Acknowledgement, AlertState, NotFoundError } from '../model';
 import { Alert } from '../model/alert.model';
 import { EscalationPolicy } from '../model/escalation-policy.model';
 import { MonitoredServiceState, MonitoredServiceStates } from '../model/monitored-service-state.model';
@@ -85,7 +85,11 @@ export class PagerService {
 
   private async buildAlertState(alert: Alert): Promise<AlertState> {
     const escalationPolicy: EscalationPolicy = await this.escalationPolicyPort.get(alert.monitoredServiceId);
-    const alertState = new AlertState(this.identifierFactory(alert.monitoredServiceId), alert.message, escalationPolicy.level);
+    const alertState = new AlertState(
+      this.identifierFactory(alert.monitoredServiceId),
+      alert.message,
+      escalationPolicy.level,
+    );
     alertState.escalationLevel.targets.forEach((t) => {
       t.identifier = this.identifierFactory(t.identifier);
     });

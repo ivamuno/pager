@@ -259,8 +259,12 @@ describe('PagerService (e2e)', () => {
           const ack = new Acknowledgement(WellKnown.MonitoredId(), anyLevel1TargetId);
           await sut.setAcknowledgement(ack);
 
-          const isAckRecevided : boolean = true;
-          PagerServiceTestHelper.AssetPersistencePortCalled(mocks.persistencePortMock, MonitoredServiceStates.unhealth, isAckRecevided);
+          const isAckRecevided: boolean = true;
+          PagerServiceTestHelper.AssetPersistencePortCalled(
+            mocks.persistencePortMock,
+            MonitoredServiceStates.unhealth,
+            isAckRecevided,
+          );
         });
       });
     });
@@ -279,7 +283,7 @@ describe('PagerService (e2e)', () => {
             alertState,
           );
 
-          const ack = new Acknowledgement(WellKnown.MonitoredId(), "inventedACK");
+          const ack = new Acknowledgement(WellKnown.MonitoredId(), 'inventedACK');
           await sut.setAcknowledgement(ack);
 
           PagerServiceTestHelper.AssetPersistencePortIsNotCalled(mocks.persistencePortMock);

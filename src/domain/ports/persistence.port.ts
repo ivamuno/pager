@@ -1,4 +1,4 @@
-import { MonitoredServiceState } from "../model";
+import { MonitoredServiceState } from '../model';
 
 export interface PersistencePort {
   getMonitoredServiceState(id: string): Promise<MonitoredServiceState>;

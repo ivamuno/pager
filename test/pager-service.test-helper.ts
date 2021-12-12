@@ -43,7 +43,9 @@ export class PagerServiceTestHelper {
     expect(setMonitoredServiceStateSpy).toBeCalledTimes(1);
     expect(setMonitoredServiceStateSpy.mock.calls[0][0].state).toBe(expectedState);
     if (isAckReceived) {
-      expect(setMonitoredServiceStateSpy.mock.calls[0][0].alertState.escalationLevel.isAckReceived()).toBe(isAckReceived);
+      expect(setMonitoredServiceStateSpy.mock.calls[0][0].alertState.escalationLevel.isAckReceived()).toBe(
+        isAckReceived,
+      );
     }
   }
 
