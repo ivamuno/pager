@@ -1,9 +1,4 @@
-import {
-  AlertStateService,
-  MonitoredServiceStateService,
-  NotificationService,
-  PagerService,
-} from '../../src/domain/services';
+import { NotificationService, PagerService } from '../../src/domain/services';
 import { Mocks } from './mocks';
 
 export class Fixture {
@@ -12,12 +7,6 @@ export class Fixture {
 
   constructor() {
     this.mocks = new Mocks();
-
-    const monitoredServiceStateService = new MonitoredServiceStateService(
-      this.mocks.persistencePortMonitoredServiceStateMock,
-    );
-
-    const alertStateService = new AlertStateService(this.mocks.persistencePortAlertStateMock);
 
     const notificationService = new NotificationService(
       this.mocks.timerPortMock,
@@ -28,8 +17,7 @@ export class Fixture {
     this.sut = new PagerService(
       this.mocks.loggerMock,
       this.mocks.escalationPolicyPortMock,
-      monitoredServiceStateService,
-      alertStateService,
+      this.mocks.persistencePortMock,
       notificationService,
       (id) => id,
     );

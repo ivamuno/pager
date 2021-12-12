@@ -36,17 +36,12 @@ describe('PagerService (e2e)', () => {
         test(`THEN the Monitored Service becomes Unhealthy,
             the Pager notifies all targets of the first level of the escalation policy,
             and sets a 15-minutes acknowledgement delay`, async () => {
-          arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.health);
+          arrangeMonitoredServiceState(mocks.persistencePortMock, MonitoredServiceStates.health);
 
           const expectedEscalationPolicy = arrangeEscalationPolicy(mocks.escalationPolicyPortMock);
 
           const alert = new Alert(monitoredId, WellKnown.AlertMessage());
           await sut.alert(alert);
-
-          assetMonitoredServiceStateCalled(
-            mocks.persistencePortMonitoredServiceStateMock,
-            MonitoredServiceStates.unhealth,
-          );
 
           assertTimerCalled(mocks.timerPortMock, monitoredId, expectedEscalationPolicy.level.targets, 2);
 
@@ -58,7 +53,7 @@ describe('PagerService (e2e)', () => {
             phoneNumber: WellKnown.EscalationLevelTargetSMS1().payload.phoneNumber,
           });
 
-          assetAlertStateCalled(mocks.persistencePortAlertStateMock, monitoredId);
+          assetPersistencePortCalled(mocks.persistencePortMock, MonitoredServiceStates.unhealth);
         });
       });
     });
@@ -67,14 +62,9 @@ describe('PagerService (e2e)', () => {
       describe(`WHEN the Pager receives an Alert related to this Monitored Service`, () => {
         test(`THEN the Pager doesn't notify any Target
             and doesn't set an acknowledgement delay`, async () => {
-          arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.unhealth);
-
           const alertState = new AlertState(monitoredId, WellKnown.AlertMessage(), WellKnown.EscalationLevel1());
-
-          // It means receive the ACK
-          alertState.escalationLevel.targets[0].isNotified = true;
-
-          arrangeAlertState(mocks.persistencePortAlertStateMock, alertState);
+          alertState.escalationLevel.targets[0].isAckReceived = true;
+          arrangeMonitoredServiceState(mocks.persistencePortMock, MonitoredServiceStates.unhealth, alertState);
 
           const alert = new Alert(monitoredId, WellKnown.AlertMessage());
           await sut.alert(alert);
@@ -84,7 +74,7 @@ describe('PagerService (e2e)', () => {
           assertNotificationIsNotCalled(mocks.smsNotificationPortMock);
           assertNotificationIsNotCalled(mocks.emailNotificationPortMock);
 
-          assetAlertStateIsNotCalled(mocks.persistencePortAlertStateMock);
+          assetPersistencePortIsNotCalled(mocks.persistencePortMock);
         });
       });
     });
@@ -97,11 +87,9 @@ describe('PagerService (e2e)', () => {
       describe('WHEN the Pager receives the Acknowledgement Timeout', () => {
         test(`THEN the Pager notifies all targets of the next level of the escalation policy
             and sets a 15-minutes acknowledgement delay`, async () => {
-          arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.unhealth);
-
           const alertState = new AlertState(monitoredId, WellKnown.AlertMessage(), WellKnown.EscalationLevel1());
           const expectedAlertState = clone(alertState);
-          arrangeAlertState(mocks.persistencePortAlertStateMock, alertState);
+          arrangeMonitoredServiceState(mocks.persistencePortMock, MonitoredServiceStates.unhealth, alertState);
 
           const anyLevel1TargetId = WellKnown.EscalationLevelTargetSMS1().identifier;
           const ack = new Acknowledgement(monitoredId, anyLevel1TargetId);
@@ -114,7 +102,7 @@ describe('PagerService (e2e)', () => {
           });
           assertNotificationIsNotCalled(mocks.emailNotificationPortMock);
 
-          assetAlertStateCalled(mocks.persistencePortAlertStateMock, monitoredId);
+          assetPersistencePortCalled(mocks.persistencePortMock, MonitoredServiceStates.unhealth);
         });
       });
     });
@@ -124,10 +112,8 @@ describe('PagerService (e2e)', () => {
         and there is not next level`, () => {
       describe('WHEN the Pager receives the Acknowledgement Timeout', () => {
         test(`THEN the Pager throws an error`, async () => {
-          arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.unhealth);
-
           const alertState = new AlertState(monitoredId, WellKnown.AlertMessage(), WellKnown.EscalationLevel2());
-          arrangeAlertState(mocks.persistencePortAlertStateMock, alertState);
+          arrangeMonitoredServiceState(mocks.persistencePortMock, MonitoredServiceStates.unhealth, alertState);
 
           const anyLevel1TargetId = WellKnown.EscalationLevelTargetSMS1().identifier;
           const ack = new Acknowledgement(monitoredId, anyLevel1TargetId);
@@ -142,7 +128,7 @@ describe('PagerService (e2e)', () => {
             assertNotificationIsNotCalled(mocks.smsNotificationPortMock);
             assertNotificationIsNotCalled(mocks.emailNotificationPortMock);
 
-            assetAlertStateIsNotCalled(mocks.persistencePortAlertStateMock);
+            assetPersistencePortIsNotCalled(mocks.persistencePortMock);
           }
         });
       });
@@ -153,14 +139,10 @@ describe('PagerService (e2e)', () => {
         and later receives the Acknowledgement Timeout`, () => {
         test(`THEN the Pager doesn't notify any Target
             and doesn't set an acknowledgement delay`, async () => {
-          arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.unhealth);
-
           const alertState = new AlertState(monitoredId, WellKnown.AlertMessage(), WellKnown.EscalationLevel1());
-
           // It means receive the ACK
-          alertState.escalationLevel.targets[0].isNotified = true;
-
-          arrangeAlertState(mocks.persistencePortAlertStateMock, alertState);
+          alertState.escalationLevel.targets[0].isAckReceived = true;
+          arrangeMonitoredServiceState(mocks.persistencePortMock, MonitoredServiceStates.unhealth, alertState);
 
           const anyLevel1TargetId = WellKnown.EscalationLevelTargetSMS1().identifier;
           const ack = new Acknowledgement(monitoredId, anyLevel1TargetId);
@@ -171,7 +153,7 @@ describe('PagerService (e2e)', () => {
           assertNotificationIsNotCalled(mocks.smsNotificationPortMock);
           assertNotificationIsNotCalled(mocks.emailNotificationPortMock);
 
-          assetAlertStateIsNotCalled(mocks.persistencePortAlertStateMock);
+          assetPersistencePortIsNotCalled(mocks.persistencePortMock);
         });
       });
     });
@@ -180,10 +162,8 @@ describe('PagerService (e2e)', () => {
       describe(`WHEN the Pager receives the Acknowledgement Timeout`, () => {
         test(`THEN the Pager doesn't notify any Target
             and doesn't set an acknowledgement delay`, async () => {
-          arrangeMonitoredServiceState(mocks.persistencePortMonitoredServiceStateMock, MonitoredServiceStates.health);
-
           const alertState = new AlertState(monitoredId, WellKnown.AlertMessage(), WellKnown.EscalationLevel1());
-          arrangeAlertState(mocks.persistencePortAlertStateMock, alertState);
+          arrangeMonitoredServiceState(mocks.persistencePortMock, MonitoredServiceStates.health, alertState);
 
           const anyLevel1TargetId = WellKnown.EscalationLevelTargetSMS1().identifier;
           const ack = new Acknowledgement(monitoredId, anyLevel1TargetId);
@@ -194,24 +174,21 @@ describe('PagerService (e2e)', () => {
           assertNotificationIsNotCalled(mocks.smsNotificationPortMock);
           assertNotificationIsNotCalled(mocks.emailNotificationPortMock);
 
-          assetAlertStateIsNotCalled(mocks.persistencePortAlertStateMock);
+          assetPersistencePortIsNotCalled(mocks.persistencePortMock);
         });
       });
     });
   });
 });
 
-function arrangeMonitoredServiceState(persistencePortMonitoredServiceStateMock, state: MonitoredServiceStates): void {
-  persistencePortMonitoredServiceStateMock.get = jest.fn().mockImplementationOnce((id: string) => {
+function arrangeMonitoredServiceState(
+  persistencePortMock: PersistencePort,
+  state: MonitoredServiceStates,
+  alertState: AlertState = undefined,
+): void {
+  persistencePortMock.getMonitoredServiceState = jest.fn().mockImplementationOnce((id: string) => {
     expect(id).toBe(monitoredId);
-    return new MonitoredServiceState(monitoredId, state);
-  });
-}
-
-function arrangeAlertState(persistencePortAlertStateMock, alertState: AlertState): void {
-  persistencePortAlertStateMock.get = jest.fn().mockImplementationOnce((id: string) => {
-    expect(id).toBe(monitoredId);
-    return alertState;
+    return new MonitoredServiceState(monitoredId, state, alertState);
   });
 }
 
@@ -226,24 +203,15 @@ function arrangeEscalationPolicy(escalationPolicyPortMock): EscalationPolicy {
   return clone(escalationPolicy);
 }
 
-function assetAlertStateCalled(mock: PersistencePort<AlertState>, id: string): void {
-  const setAlertStateSpy = jest.spyOn(mock, 'set');
-  expect(setAlertStateSpy).toBeCalledTimes(1);
-  expect(setAlertStateSpy.mock.calls[0][0].identifier).toBe(id);
-}
-
-function assetAlertStateIsNotCalled(mock: PersistencePort<AlertState>): void {
-  const setAlertStateSpy = jest.spyOn(mock, 'set');
-  expect(setAlertStateSpy).not.toBeCalled();
-}
-
-function assetMonitoredServiceStateCalled(
-  mock: PersistencePort<MonitoredServiceState>,
-  expectedState: MonitoredServiceStates,
-): void {
-  const setMonitoredServiceStateSpy = jest.spyOn(mock, 'set');
+function assetPersistencePortCalled(mock: PersistencePort, expectedState: MonitoredServiceStates): void {
+  const setMonitoredServiceStateSpy = jest.spyOn(mock, 'setMonitoredServiceState');
   expect(setMonitoredServiceStateSpy).toBeCalledTimes(1);
   expect(setMonitoredServiceStateSpy.mock.calls[0][0].state).toBe(expectedState);
+}
+
+function assetPersistencePortIsNotCalled(mock: PersistencePort): void {
+  const setMonitoredServiceStateSpy = jest.spyOn(mock, 'setMonitoredServiceState');
+  expect(setMonitoredServiceStateSpy).not.toBeCalled();
 }
 
 function assertTimerCalled(

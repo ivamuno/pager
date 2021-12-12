@@ -1,10 +1,6 @@
-export interface PersistencePortEntity {
-  identifier: string;
-  payload: any;
-}
+import { MonitoredServiceState } from "../model";
 
-export interface PersistencePort<TState extends PersistencePortEntity> {
-  get(id: string): Promise<TState>;
-  set(entity: TState): Promise<void>;
-  delete(id: string): Promise<void>;
+export interface PersistencePort {
+  getMonitoredServiceState(id: string): Promise<MonitoredServiceState>;
+  setMonitoredServiceState(entity: MonitoredServiceState): Promise<void>;
 }

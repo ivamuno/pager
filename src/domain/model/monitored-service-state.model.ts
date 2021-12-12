@@ -1,3 +1,4 @@
+import { AlertState } from '.';
 import { MonitoredService } from './monitored-service.model';
 
 /* eslint-disable no-unused-vars */
@@ -7,9 +8,7 @@ export enum MonitoredServiceStates {
 }
 
 export class MonitoredServiceState extends MonitoredService {
-  payload: MonitoredServiceStates = this.state;
-
-  constructor(identifier: string, public state: MonitoredServiceStates) {
+  constructor(identifier: string, public state: MonitoredServiceStates, public alertState: AlertState) {
     super(identifier);
   }
 

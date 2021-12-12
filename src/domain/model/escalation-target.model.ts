@@ -5,7 +5,7 @@ export enum EscalationTargetType {
 }
 
 export abstract class EscalationTarget<TType> {
-  constructor(public identifier: string, public isNotified: boolean, public payload: TType) {}
+  constructor(public identifier: string, public isAckReceived: boolean, public payload: TType) {}
 
   abstract getEscalationTargetType(): EscalationTargetType;
 }
@@ -15,8 +15,8 @@ export class EscalationSMSTargetPayload {
 }
 
 export class EscalationSMSTarget extends EscalationTarget<EscalationSMSTargetPayload> {
-  constructor(identifier: string, isNotified: boolean, payload: EscalationSMSTargetPayload) {
-    super(identifier, isNotified, payload);
+  constructor(identifier: string, isAckReceived: boolean, payload: EscalationSMSTargetPayload) {
+    super(identifier, isAckReceived, payload);
   }
 
   getEscalationTargetType(): EscalationTargetType {
@@ -29,8 +29,8 @@ export class EscalationEmailTargetPayload {
 }
 
 export class EscalationEmailTarget extends EscalationTarget<EscalationEmailTargetPayload> {
-  constructor(identifier: string, isNotified: boolean, payload: EscalationEmailTargetPayload) {
-    super(identifier, isNotified, payload);
+  constructor(identifier: string, isAckReceived: boolean, payload: EscalationEmailTargetPayload) {
+    super(identifier, isAckReceived, payload);
   }
 
   getEscalationTargetType(): EscalationTargetType {
